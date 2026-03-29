@@ -1961,38 +1961,6 @@ export default function SensorDashboard() {
           )}
         </div>
 
-        {/* ── BUILDING GRID ── */}
-        <div style={S.section}>
-          <div style={S.sectionTitle}>
-            <span style={{ color: "#3498db" }}>&#9632;</span> Building Grid
-          </div>
-          <div style={S.filterBar}>
-            {[["All", `All (120)`], ["Research Lab", "Labs (20)"], ["Academic", "Academic (60)"],
-              ["Residence", "Residence (25)"], ["Athletic", "Athletic (15)"]].map(([v, l]) => (
-              <button key={v} style={S.filterBtn(typeFilter === v)} onClick={() => setTypeFilter(v)}>{l}</button>
-            ))}
-            <span style={{ width: 1, background: "#1e2230", margin: "0 4px" }} />
-            {[["All", "All Meters"], ["Metered", "Metered (30)"], ["New", "New (20)"], ["Proxy", "Proxy (70)"]].map(([v, l]) => (
-              <button key={v} style={S.filterBtn(meterFilter === v)} onClick={() => setMeterFilter(v)}>{l}</button>
-            ))}
-            <span style={{ width: 1, background: "#1e2230", margin: "0 4px" }} />
-            {[["energy", "Energy \u2193"], ["efficiency", "Efficiency"], ["alerts", "Alerts"]].map(([v, l]) => (
-              <button key={v} style={S.filterBtn(sortBy === v)} onClick={() => setSortBy(v)}>{l}</button>
-            ))}
-          </div>
-          <div style={S.grid}>
-            {filteredBuildings.slice(0, 24).map(b => (
-              <BuildingCard key={b.id} building={b} data={getBuildingData(b)}
-                selected={selectedBuilding === b.id} onClick={setSelectedBuilding} />
-            ))}
-          </div>
-          {filteredBuildings.length > 24 && (
-            <div style={{ textAlign: "center", padding: 16, color: "#6b7080", fontSize: 12 }}>
-              Showing 24 of {filteredBuildings.length}. Use filters to narrow.
-            </div>
-          )}
-        </div>
-
         {/* ── ML MODEL: HOW IT WORKS ── */}
         <div style={S.section}>
           <div style={S.sectionTitle}>
@@ -2268,6 +2236,38 @@ export default function SensorDashboard() {
               For a 500 kW building, estimate is 485-515 kW
             </div>
           </div>
+        </div>
+
+        {/* ── BUILDING GRID ── */}
+        <div style={S.section}>
+          <div style={S.sectionTitle}>
+            <span style={{ color: "#3498db" }}>&#9632;</span> Building Grid
+          </div>
+          <div style={S.filterBar}>
+            {[["All", `All (120)`], ["Research Lab", "Labs (20)"], ["Academic", "Academic (60)"],
+              ["Residence", "Residence (25)"], ["Athletic", "Athletic (15)"]].map(([v, l]) => (
+              <button key={v} style={S.filterBtn(typeFilter === v)} onClick={() => setTypeFilter(v)}>{l}</button>
+            ))}
+            <span style={{ width: 1, background: "#1e2230", margin: "0 4px" }} />
+            {[["All", "All Meters"], ["Metered", "Metered (30)"], ["New", "New (20)"], ["Proxy", "Proxy (70)"]].map(([v, l]) => (
+              <button key={v} style={S.filterBtn(meterFilter === v)} onClick={() => setMeterFilter(v)}>{l}</button>
+            ))}
+            <span style={{ width: 1, background: "#1e2230", margin: "0 4px" }} />
+            {[["energy", "Energy \u2193"], ["efficiency", "Efficiency"], ["alerts", "Alerts"]].map(([v, l]) => (
+              <button key={v} style={S.filterBtn(sortBy === v)} onClick={() => setSortBy(v)}>{l}</button>
+            ))}
+          </div>
+          <div style={S.grid}>
+            {filteredBuildings.slice(0, 24).map(b => (
+              <BuildingCard key={b.id} building={b} data={getBuildingData(b)}
+                selected={selectedBuilding === b.id} onClick={setSelectedBuilding} />
+            ))}
+          </div>
+          {filteredBuildings.length > 24 && (
+            <div style={{ textAlign: "center", padding: 16, color: "#6b7080", fontSize: 12 }}>
+              Showing 24 of {filteredBuildings.length}. Use filters to narrow.
+            </div>
+          )}
         </div>
 
         {/* ── Campus Load Profile ── */}
