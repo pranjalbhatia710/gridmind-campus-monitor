@@ -282,85 +282,107 @@ const STATUS_COLORS_3D = { green: 0x27ae60, yellow: 0xf39c12, red: 0xe74c3c };
 // 3D CAMPUS — ARCHITECTURAL DETAIL
 // ════════════════════════════════════════════════════════════════════════
 
-// Window row on a building face
-function WindowRow({ width, y, z, count, windowColor }) {
-  const windows = [];
-  const spacing = width / (count + 1);
-  for (let i = 0; i < count; i++) {
-    const x = -width / 2 + spacing * (i + 1);
-    windows.push(
-      <mesh key={i} position={[x, y, z]}>
-        <planeGeometry args={[spacing * 0.45, 0.25]} />
-        <meshStandardMaterial color={windowColor} emissive={windowColor} emissiveIntensity={0.3}
-          metalness={0.8} roughness={0.2} />
-      </mesh>
-    );
-  }
-  return <>{windows}</>;
+// Efficient window strip — single mesh per face using a canvas texture
+function WindowStrip({ width, height, z, floors, cols, windowColor, rotation = [0, 0, 0] }) {
+  const tex = useMemo(() => {
+    const canvas = document.createElement("canvas");
+    const cw = cols * 20, ch = floors * 20;
+    canvas.width = cw; canvas.height = ch;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "transparent";
+    ctx.clearRect(0, 0, cw, ch);
+    ctx.fillStyle = windowColor;
+    const padX = 3, padY = 4, winW = (cw / cols) - padX * 2, winH = (ch / floors) - padY * 2;
+    for (let r = 0; r < floors; r++) {
+      for (let c = 0; c < cols; c++) {
+        ctx.fillRect(c * (cw / cols) + padX, r * (ch / floors) + padY, winW, winH);
+      }
+    }
+    const t = new THREE.CanvasTexture(canvas);
+    t.minFilter = THREE.LinearFilter;
+    return t;
+  }, [floors, cols, windowColor]);
+  return (
+    <mesh position={[0, height / 2, z]} rotation={rotation}>
+      <planeGeometry args={[width, height]} />
+      <meshStandardMaterial map={tex} transparent emissive={windowColor}
+        emissiveIntensity={0.35} metalness={0.6} roughness={0.3} side={THREE.DoubleSide} />
+    </mesh>
+  );
 }
 
-// Windows on all four faces of a building
+// Windows on all four faces — 4 meshes total instead of hundreds
 function BuildingWindows({ w, d, h, floors, windowColor }) {
-  const rows = [];
-  const floorH = h / floors;
-  const countW = Math.max(2, Math.round(w / 0.4));
-  const countD = Math.max(2, Math.round(d / 0.4));
-  for (let f = 0; f < floors; f++) {
-    const y = floorH * (f + 0.5);
-    // front
-    rows.push(<WindowRow key={`f${f}`} width={w} y={y} z={d / 2 + 0.005} count={countW} windowColor={windowColor} />);
-    // back
-    rows.push(<group key={`b${f}`} rotation={[0, Math.PI, 0]}>
-      <WindowRow width={w} y={y} z={d / 2 + 0.005} count={countW} windowColor={windowColor} />
-    </group>);
-    // left
-    rows.push(<group key={`l${f}`} rotation={[0, -Math.PI / 2, 0]}>
-      <WindowRow width={d} y={y} z={w / 2 + 0.005} count={countD} windowColor={windowColor} />
-    </group>);
-    // right
-    rows.push(<group key={`r${f}`} rotation={[0, Math.PI / 2, 0]}>
-      <WindowRow width={d} y={y} z={w / 2 + 0.005} count={countD} windowColor={windowColor} />
-    </group>);
-  }
-  return <>{rows}</>;
+  const colsW = Math.max(2, Math.round(w / 0.35));
+  const colsD = Math.max(2, Math.round(d / 0.35));
+  return (
+    <group>
+      {/* front */}
+      <WindowStrip width={w * 0.92} height={h * 0.88} z={d / 2 + 0.006} floors={floors} cols={colsW} windowColor={windowColor} />
+      {/* back */}
+      <WindowStrip width={w * 0.92} height={h * 0.88} z={-d / 2 - 0.006} floors={floors} cols={colsW} windowColor={windowColor} />
+      {/* left */}
+      <WindowStrip width={d * 0.92} height={h * 0.88} z={0} floors={floors} cols={colsD} windowColor={windowColor}
+        rotation={[0, Math.PI / 2, 0]} />
+      {/* right — reuse by offsetting */}
+      <group position={[0, 0, 0]}>
+        <mesh position={[w / 2 + 0.006, h / 2, 0]} rotation={[0, Math.PI / 2, 0]}>
+          <planeGeometry args={[d * 0.92, h * 0.88]} />
+          <meshStandardMaterial color={windowColor} emissive={windowColor}
+            emissiveIntensity={0.35} transparent opacity={0.9} metalness={0.6} roughness={0.3} />
+        </mesh>
+        <mesh position={[-w / 2 - 0.006, h / 2, 0]} rotation={[0, -Math.PI / 2, 0]}>
+          <planeGeometry args={[d * 0.92, h * 0.88]} />
+          <meshStandardMaterial color={windowColor} emissive={windowColor}
+            emissiveIntensity={0.35} transparent opacity={0.9} metalness={0.6} roughness={0.3} />
+        </mesh>
+      </group>
+    </group>
+  );
 }
 
 // Lab building: modern flat roof, glass curtain wall look
 function LabBuilding({ w, d, h, wallColor, isProxy }) {
-  const floors = Math.max(2, Math.round(h / 0.7));
+  const floors = Math.max(2, Math.round(h / 0.6));
   return (
     <group>
+      {/* Base / foundation */}
+      <mesh position={[0, 0.04, 0]} castShadow>
+        <boxGeometry args={[w + 0.08, 0.08, d + 0.08]} />
+        <meshStandardMaterial color="#333" metalness={0.3} roughness={0.7} />
+      </mesh>
       {/* Main body */}
       <mesh position={[0, h / 2, 0]} castShadow>
         <boxGeometry args={[w, h, d]} />
-        <meshStandardMaterial color={wallColor} metalness={0.4} roughness={0.5}
-          transparent opacity={isProxy ? 0.5 : 0.9} />
+        <meshStandardMaterial color={wallColor} metalness={0.45} roughness={0.45}
+          transparent opacity={isProxy ? 0.5 : 0.92} />
       </mesh>
-      {/* Glass windows */}
-      <group position={[0, 0, 0]}>
-        <BuildingWindows w={w} d={d} h={h} floors={floors} windowColor="#66aadd" />
-      </group>
-      {/* Flat roof with mechanical equipment */}
-      <mesh position={[0, h + 0.03, 0]}>
-        <boxGeometry args={[w + 0.06, 0.06, d + 0.06]} />
-        <meshStandardMaterial color="#2a2a2a" metalness={0.6} roughness={0.4} />
+      {/* Glass window curtain wall */}
+      <BuildingWindows w={w} d={d} h={h} floors={floors} windowColor="#88ccff" />
+      {/* Flat roof parapet */}
+      <mesh position={[0, h + 0.04, 0]}>
+        <boxGeometry args={[w + 0.06, 0.08, d + 0.06]} />
+        <meshStandardMaterial color="#2a2e33" metalness={0.6} roughness={0.35} />
       </mesh>
-      {/* Rooftop HVAC unit */}
-      <mesh position={[w * 0.2, h + 0.18, -d * 0.15]}>
-        <boxGeometry args={[w * 0.25, 0.2, d * 0.2]} />
-        <meshStandardMaterial color="#3a3a3a" metalness={0.5} roughness={0.5} />
+      {/* Rooftop HVAC units */}
+      <mesh position={[w * 0.2, h + 0.2, -d * 0.15]}>
+        <boxGeometry args={[w * 0.22, 0.22, d * 0.18]} />
+        <meshStandardMaterial color="#3d3d3d" metalness={0.5} roughness={0.5} />
       </mesh>
-      <mesh position={[-w * 0.15, h + 0.18, d * 0.2]}>
-        <boxGeometry args={[w * 0.15, 0.25, d * 0.15]} />
+      <mesh position={[-w * 0.18, h + 0.22, d * 0.18]}>
+        <boxGeometry args={[w * 0.14, 0.28, d * 0.14]} />
         <meshStandardMaterial color="#444" metalness={0.5} roughness={0.5} />
       </mesh>
-      {/* Floor lines */}
-      {Array.from({ length: floors - 1 }, (_, i) => (
-        <mesh key={i} position={[0, (i + 1) * (h / floors), d / 2 + 0.006]}>
-          <planeGeometry args={[w, 0.02]} />
-          <meshBasicMaterial color="#1a1a1a" />
-        </mesh>
-      ))}
+      {/* Ventilation exhaust pipe */}
+      <mesh position={[w * 0.3, h + 0.3, d * 0.25]}>
+        <cylinderGeometry args={[0.03, 0.03, 0.4, 6]} />
+        <meshStandardMaterial color="#555" metalness={0.6} />
+      </mesh>
+      {/* Horizontal accent band */}
+      <mesh position={[0, h * 0.5, d / 2 + 0.007]}>
+        <planeGeometry args={[w, 0.04]} />
+        <meshStandardMaterial color="#4488aa" metalness={0.5} roughness={0.3} />
+      </mesh>
     </group>
   );
 }
@@ -521,21 +543,21 @@ function Building3D({ building, data, isSelected, isHovered, onHover, onClick, s
   const meterColor = METER_COLORS[building.metered_status];
   const statusColor = STATUS_COLORS[data.status];
 
-  // Dimensions from sqft
-  const area = building.sqft / 5000; // scale factor
-  const w = Math.sqrt(area) * 0.85;
-  const d = Math.sqrt(area) * 0.6;
-  const h = building.type === "Research Lab" ? 1.2 + data.currentPower / 2500
-    : building.type === "Residence" ? 1.5 + data.currentPower / 3000
-    : building.type === "Athletic" ? 0.7 + data.currentPower / 4000
-    : 0.8 + data.currentPower / 3500;
+  // Dimensions — wider footprint, taller heights for drama
+  const area = building.sqft / 4000;
+  const w = Math.sqrt(area) * 0.9;
+  const d = Math.sqrt(area) * 0.65;
+  const h = building.type === "Research Lab" ? 1.6 + data.currentPower / 2000
+    : building.type === "Residence" ? 2.0 + data.currentPower / 2200
+    : building.type === "Athletic" ? 0.9 + data.currentPower / 3500
+    : 1.0 + data.currentPower / 2800;
 
-  // Wall colors by type
+  // Brighter, more distinct wall colors per type
   const wallColors = {
-    "Research Lab": "#4a5568",  // modern grey
-    Academic: "#8b6347",        // brick brown
-    Residence: "#6b7b8d",       // slate
-    Athletic: "#4a5a6a",        // steel blue-grey
+    "Research Lab": "#5a6a7a",  // modern steel grey
+    Academic: "#a07050",        // warm brick
+    Residence: "#7a8898",       // blue-slate
+    Athletic: "#5a6878",        // gunmetal
   };
   const wallColor = wallColors[building.type];
 
@@ -700,20 +722,30 @@ function PineTree({ position, scale = 1 }) {
   );
 }
 
-// Lamp post
+// Lamp post — no point light per lamp (performance), just emissive glow
 function LampPost({ position }) {
   return (
     <group position={position}>
-      <mesh position={[0, 0.5, 0]}>
-        <cylinderGeometry args={[0.02, 0.025, 1.0, 6]} />
-        <meshStandardMaterial color="#444" metalness={0.6} roughness={0.4} />
+      {/* Pole */}
+      <mesh position={[0, 0.45, 0]}>
+        <cylinderGeometry args={[0.018, 0.025, 0.9, 5]} />
+        <meshStandardMaterial color="#555" metalness={0.7} roughness={0.3} />
       </mesh>
-      <mesh position={[0, 1.02, 0]}>
-        <sphereGeometry args={[0.06, 6, 6]} />
-        <meshStandardMaterial color="#ffdd88" emissive="#ffdd88" emissiveIntensity={0.6} />
+      {/* Arm */}
+      <mesh position={[0.08, 0.88, 0]} rotation={[0, 0, -0.3]}>
+        <cylinderGeometry args={[0.01, 0.012, 0.18, 4]} />
+        <meshStandardMaterial color="#555" metalness={0.7} roughness={0.3} />
       </mesh>
-      {/* Light cone */}
-      <pointLight position={[0, 1.0, 0]} intensity={0.15} distance={3} color="#ffdd88" />
+      {/* Lamp head */}
+      <mesh position={[0.14, 0.92, 0]}>
+        <sphereGeometry args={[0.045, 6, 6]} />
+        <meshStandardMaterial color="#ffeeaa" emissive="#ffdd88" emissiveIntensity={1.2} />
+      </mesh>
+      {/* Glow cone on ground */}
+      <mesh position={[0.14, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[0.5, 8]} />
+        <meshBasicMaterial color="#ffdd88" transparent opacity={0.04} />
+      </mesh>
     </group>
   );
 }
@@ -736,30 +768,52 @@ function Bench({ position, rotation = 0 }) {
   );
 }
 
-// Paved road segment
-function PavedRoad({ from, to, width = 0.6 }) {
+// Paved road with center dashes
+function PavedRoad({ from, to, width = 0.7 }) {
+  const dx = to[0] - from[0], dz = to[1] - from[1];
+  const len = Math.sqrt(dx * dx + dz * dz);
+  const angle = Math.atan2(dx, dz);
+  const cx = (from[0] + to[0]) / 2, cz = (from[1] + to[1]) / 2;
+  // Dashed center line
+  const dashes = [];
+  const dashCount = Math.floor(len / 0.8);
+  for (let i = 0; i < dashCount; i++) {
+    const t = (i + 0.5) / dashCount;
+    dashes.push(
+      <mesh key={i} position={[from[0] + dx * t, 0.014, from[1] + dz * t]}
+        rotation={[-Math.PI / 2, 0, -angle]}>
+        <planeGeometry args={[0.03, 0.25]} />
+        <meshBasicMaterial color="#555" />
+      </mesh>
+    );
+  }
+  return (
+    <group>
+      {/* Road surface */}
+      <mesh position={[cx, 0.013, cz]} rotation={[-Math.PI / 2, 0, -angle]}>
+        <planeGeometry args={[width, len]} />
+        <meshStandardMaterial color="#2c2c2c" roughness={0.88} metalness={0.05} />
+      </mesh>
+      {/* Curbs / edges */}
+      <mesh position={[cx, 0.014, cz]} rotation={[-Math.PI / 2, 0, -angle]}>
+        <planeGeometry args={[width + 0.08, len]} />
+        <meshStandardMaterial color="#3a3a3a" roughness={0.85} />
+      </mesh>
+      {dashes}
+    </group>
+  );
+}
+
+// Walking path — concrete sidewalk
+function WalkPath({ from, to }) {
   const dx = to[0] - from[0], dz = to[1] - from[1];
   const len = Math.sqrt(dx * dx + dz * dz);
   const angle = Math.atan2(dx, dz);
   return (
     <mesh position={[(from[0] + to[0]) / 2, 0.012, (from[1] + to[1]) / 2]}
       rotation={[-Math.PI / 2, 0, -angle]}>
-      <planeGeometry args={[width, len]} />
-      <meshStandardMaterial color="#2a2a2a" roughness={0.9} metalness={0.05} />
-    </mesh>
-  );
-}
-
-// Walking path (lighter, narrower)
-function WalkPath({ from, to }) {
-  const dx = to[0] - from[0], dz = to[1] - from[1];
-  const len = Math.sqrt(dx * dx + dz * dz);
-  const angle = Math.atan2(dx, dz);
-  return (
-    <mesh position={[(from[0] + to[0]) / 2, 0.011, (from[1] + to[1]) / 2]}
-      rotation={[-Math.PI / 2, 0, -angle]}>
-      <planeGeometry args={[0.3, len]} />
-      <meshStandardMaterial color="#3a3530" roughness={0.95} />
+      <planeGeometry args={[0.35, len]} />
+      <meshStandardMaterial color="#4a4640" roughness={0.9} />
     </mesh>
   );
 }
@@ -782,30 +836,44 @@ function ZoneLabel({ position, label, count, color, totalPower }) {
   );
 }
 
-// Central campus quad (grass area)
+// Central campus quad (grass area) — brighter green
 function CampusQuad({ center, size }) {
   return (
     <group>
-      <mesh position={[center[0], 0.008, center[1]]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh position={[center[0], 0.01, center[1]]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={size} />
-        <meshStandardMaterial color="#1a3518" roughness={0.95} metalness={0} />
+        <meshStandardMaterial color="#1e4a1c" roughness={0.92} metalness={0} />
       </mesh>
-      {/* Subtle border */}
-      <mesh position={[center[0], 0.009, center[1]]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[Math.min(size[0], size[1]) / 2 - 0.1, Math.min(size[0], size[1]) / 2, 30]} />
-        <meshBasicMaterial color="#2a4a22" transparent opacity={0.5} side={THREE.DoubleSide} />
+      {/* Concrete path border */}
+      <mesh position={[center[0], 0.012, center[1]]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[Math.min(size[0], size[1]) / 2 - 0.08, Math.min(size[0], size[1]) / 2 + 0.04, 32]} />
+        <meshStandardMaterial color="#3a3a36" roughness={0.85} side={THREE.DoubleSide} />
       </mesh>
     </group>
   );
 }
 
-// Parking lot
+// Parking lot with lane markings
 function ParkingLot({ center, size }) {
+  const stripes = [];
+  const count = Math.floor(size[0] / 0.5);
+  for (let i = 0; i < count; i++) {
+    stripes.push(
+      <mesh key={i} position={[center[0] - size[0] / 2 + (i + 0.5) * (size[0] / count), 0.009, center[1]]}
+        rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[0.04, size[1] * 0.6]} />
+        <meshBasicMaterial color="#444" />
+      </mesh>
+    );
+  }
   return (
-    <mesh position={[center[0], 0.007, center[1]]} rotation={[-Math.PI / 2, 0, 0]}>
-      <planeGeometry args={size} />
-      <meshStandardMaterial color="#1e1e1e" roughness={0.95} metalness={0.05} />
-    </mesh>
+    <group>
+      <mesh position={[center[0], 0.008, center[1]]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={size} />
+        <meshStandardMaterial color="#222222" roughness={0.9} metalness={0.05} />
+      </mesh>
+      {stripes}
+    </group>
   );
 }
 
@@ -900,31 +968,70 @@ function CampusScene({ buildings, selectedId, hoveredId, onSelectBuilding, onHov
       shadows
       onPointerMissed={() => onSelectBuilding(null)}
     >
-      <color attach="background" args={["#060810"]} />
-      <fog attach="fog" args={["#060810", 45, 90]} />
+      <color attach="background" args={["#080c14"]} />
+      <fog attach="fog" args={["#080c14", 50, 95]} />
 
-      {/* Lighting — warm sunlight + cool fill */}
-      <ambientLight intensity={0.3} />
-      <directionalLight position={[20, 25, 15]} intensity={0.7} castShadow color="#fff5e6"
+      {/* Lighting — brighter, more contrast */}
+      <ambientLight intensity={0.45} />
+      <directionalLight position={[20, 28, 15]} intensity={1.0} castShadow color="#fff8ee"
         shadow-mapSize={[2048, 2048]} shadow-camera-far={70}
         shadow-camera-left={-35} shadow-camera-right={35}
         shadow-camera-top={35} shadow-camera-bottom={-35}
       />
-      <pointLight position={[-18, 5, -12]} intensity={0.2} color="#6688cc" />
-      <pointLight position={[18, 5, 22]} intensity={0.15} color="#cc8844" />
-      <hemisphereLight intensity={0.15} color="#88aacc" groundColor="#221a10" />
+      <directionalLight position={[-15, 12, -8]} intensity={0.25} color="#8899bb" />
+      <pointLight position={[-18, 6, -12]} intensity={0.3} color="#6688cc" distance={30} />
+      <pointLight position={[18, 6, 22]} intensity={0.2} color="#cc9944" distance={30} />
+      <pointLight position={[0, 10, 5]} intensity={0.25} color="#aabbdd" distance={40} />
+      <hemisphereLight intensity={0.25} color="#99bbdd" groundColor="#2a2010" />
 
-      {/* Ground plane — dark grass */}
+      {/* Ground plane — richer dark green-brown */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 5]} receiveShadow>
-        <planeGeometry args={[65, 55]} />
-        <meshStandardMaterial color="#0e1a0e" roughness={0.95} metalness={0} />
+        <planeGeometry args={[70, 60]} />
+        <meshStandardMaterial color="#121e12" roughness={0.92} metalness={0} />
       </mesh>
 
-      {/* Campus quads — lighter grass patches */}
-      <CampusQuad center={[-1, -6]} size={[6, 6]} />
-      <CampusQuad center={[5, 14]} size={[5, 4]} />
-      <CampusQuad center={[15, 0]} size={[4, 4]} />
-      <CampusQuad center={[-8, 15]} size={[4, 3]} />
+      {/* Campus quads — green spaces */}
+      <CampusQuad center={[-1, -6]} size={[7, 7]} />
+      <CampusQuad center={[5, 14]} size={[5, 5]} />
+      <CampusQuad center={[15, 0]} size={[5, 5]} />
+      <CampusQuad center={[-8, 15]} size={[5, 4]} />
+      <CampusQuad center={[8, -6]} size={[3, 3]} />
+
+      {/* Central fountain in main quad */}
+      <group position={[-1, 0, -6]}>
+        <mesh position={[0, 0.06, 0]}>
+          <cylinderGeometry args={[0.6, 0.7, 0.12, 16]} />
+          <meshStandardMaterial color="#4a6070" metalness={0.4} roughness={0.5} />
+        </mesh>
+        <mesh position={[0, 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[0.55, 16]} />
+          <meshStandardMaterial color="#2244667" metalness={0.6} roughness={0.2}
+            emissive="#224466" emissiveIntensity={0.15} />
+        </mesh>
+        <mesh position={[0, 0.25, 0]}>
+          <cylinderGeometry args={[0.06, 0.08, 0.3, 8]} />
+          <meshStandardMaterial color="#667788" metalness={0.5} roughness={0.4} />
+        </mesh>
+      </group>
+
+      {/* Campus entrance sign */}
+      <group position={[-20, 0, -16]}>
+        <mesh position={[0, 0.4, 0]}>
+          <boxGeometry args={[2.5, 0.8, 0.1]} />
+          <meshStandardMaterial color="#1a2030" metalness={0.3} roughness={0.6} />
+        </mesh>
+        <mesh position={[0, 0.4, 0.06]}>
+          <planeGeometry args={[2.3, 0.6]} />
+          <meshStandardMaterial color="#daa520" emissive="#daa520" emissiveIntensity={0.3} />
+        </mesh>
+        {/* Supports */}
+        {[-0.9, 0.9].map((x, i) => (
+          <mesh key={i} position={[x, 0.2, 0]}>
+            <boxGeometry args={[0.06, 0.4, 0.08]} />
+            <meshStandardMaterial color="#2a2a2a" />
+          </mesh>
+        ))}
+      </group>
 
       {/* Parking lots */}
       <ParkingLot center={[22, -14]} size={[4, 6]} />
@@ -941,12 +1048,19 @@ function CampusScene({ buildings, selectedId, hoveredId, onSelectBuilding, onHov
       <PavedRoad from={[-18, 18]} to={[2, 18]} width={0.5} />
       <PavedRoad from={[8, 2]} to={[22, 2]} width={0.5} />
 
-      {/* Walking paths */}
+      {/* Walking paths — connecting buildings to roads */}
       <WalkPath from={[-6, -6]} to={[4, -6]} />
-      <WalkPath from={[-1, -3]} to={[-1, 3]} />
+      <WalkPath from={[-1, -9]} to={[-1, -3]} />
+      <WalkPath from={[-1, 1]} to={[-1, 6]} />
       <WalkPath from={[5, 8]} to={[5, 18]} />
       <WalkPath from={[-8, 8]} to={[-8, 16]} />
       <WalkPath from={[14, -8]} to={[20, -8]} />
+      <WalkPath from={[3, -6]} to={[3, 0]} />
+      <WalkPath from={[-5, -6]} to={[-5, -12]} />
+      <WalkPath from={[15, 2]} to={[15, 8]} />
+      <WalkPath from={[-10, 0]} to={[-10, 8]} />
+      <WalkPath from={[6, 0]} to={[10, 0]} />
+      <WalkPath from={[-18, -6]} to={[-14, -6]} />
 
       {/* Zone labels */}
       <ZoneLabel position={[-8, 5.5, -14.5]} label="RESEARCH LABS" count={20}
