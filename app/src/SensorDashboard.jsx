@@ -94,9 +94,9 @@ function generateBuildings() {
       gridZ: -12 + row * 3.0 + (rngVal() - 0.5) * 0.5,
     });
   }
-  // Athletic — bottom-left
+  // Athletic — bottom-left, wider spacing for bigger buildings
   for (let i = 0; i < 15; i++) {
-    const sqft = 30000 + Math.floor(rngVal() * 70000);
+    const sqft = 40000 + Math.floor(rngVal() * 60000);
     const age = 5 + Math.floor(rngVal() * 35);
     const isExisting = i < 3;
     const isNew = !isExisting && i < 5;
@@ -105,8 +105,8 @@ function generateBuildings() {
       id: `ATH-${String(i+1).padStart(2,"0")}`,
       name: ATHLETIC_NAMES[i], type: "Athletic", sqft, age_years: age,
       metered_status: isExisting ? "existing" : isNew ? "new" : "proxy",
-      gridX: -14 + col * 3.5 + (rngVal() - 0.5) * 0.6,
-      gridZ: 18 + row * 3.5 + (rngVal() - 0.5) * 0.6,
+      gridX: -14 + col * 4.5 + (rngVal() - 0.5) * 0.4,
+      gridZ: 18 + row * 4.5 + (rngVal() - 0.5) * 0.4,
     });
   }
   return buildings;
@@ -341,14 +341,14 @@ function BuildingWindows({ w, d, h, floors, windowColor }) {
   );
 }
 
-// Lab building: modern flat roof, glass curtain wall look
+// Lab building: modern flat roof, glass curtain wall, rooftop equipment
 function LabBuilding({ w, d, h, wallColor, isProxy }) {
   const floors = Math.max(2, Math.round(h / 0.6));
   return (
     <group>
-      {/* Base / foundation */}
-      <mesh position={[0, 0.04, 0]} castShadow>
-        <boxGeometry args={[w + 0.08, 0.08, d + 0.08]} />
+      {/* Foundation / plinth */}
+      <mesh position={[0, 0.05, 0]} castShadow>
+        <boxGeometry args={[w + 0.1, 0.1, d + 0.1]} />
         <meshStandardMaterial color="#333" metalness={0.3} roughness={0.7} />
       </mesh>
       {/* Main body */}
@@ -357,162 +357,312 @@ function LabBuilding({ w, d, h, wallColor, isProxy }) {
         <meshStandardMaterial color={wallColor} metalness={0.45} roughness={0.45}
           transparent opacity={isProxy ? 0.5 : 0.92} />
       </mesh>
-      {/* Glass window curtain wall */}
+      {/* Corner pilasters — vertical accent strips on edges */}
+      {[[-1,-1],[-1,1],[1,-1],[1,1]].map(([sx,sz], i) => (
+        <mesh key={i} position={[sx * w / 2, h / 2, sz * d / 2]} castShadow>
+          <boxGeometry args={[0.06, h + 0.02, 0.06]} />
+          <meshStandardMaterial color="#3a4550" metalness={0.5} roughness={0.4} />
+        </mesh>
+      ))}
+      {/* Glass windows */}
       <BuildingWindows w={w} d={d} h={h} floors={floors} windowColor="#88ccff" />
+      {/* Horizontal spandrel bands between floors */}
+      {Array.from({ length: floors - 1 }, (_, i) => (
+        <group key={i}>
+          <mesh position={[0, (i + 1) * (h / floors), d / 2 + 0.007]}>
+            <planeGeometry args={[w * 0.95, 0.035]} />
+            <meshStandardMaterial color="#3a4a55" metalness={0.4} />
+          </mesh>
+          <mesh position={[0, (i + 1) * (h / floors), -d / 2 - 0.007]}>
+            <planeGeometry args={[w * 0.95, 0.035]} />
+            <meshStandardMaterial color="#3a4a55" metalness={0.4} />
+          </mesh>
+        </group>
+      ))}
       {/* Flat roof parapet */}
       <mesh position={[0, h + 0.04, 0]}>
         <boxGeometry args={[w + 0.06, 0.08, d + 0.06]} />
         <meshStandardMaterial color="#2a2e33" metalness={0.6} roughness={0.35} />
       </mesh>
-      {/* Rooftop HVAC units */}
+      {/* Rooftop HVAC unit */}
       <mesh position={[w * 0.2, h + 0.2, -d * 0.15]}>
         <boxGeometry args={[w * 0.22, 0.22, d * 0.18]} />
         <meshStandardMaterial color="#3d3d3d" metalness={0.5} roughness={0.5} />
       </mesh>
-      <mesh position={[-w * 0.18, h + 0.22, d * 0.18]}>
-        <boxGeometry args={[w * 0.14, 0.28, d * 0.14]} />
+      {/* Exhaust fan housing */}
+      <mesh position={[-w * 0.18, h + 0.16, d * 0.18]}>
+        <cylinderGeometry args={[0.08, 0.08, 0.2, 6]} />
         <meshStandardMaterial color="#444" metalness={0.5} roughness={0.5} />
       </mesh>
-      {/* Ventilation exhaust pipe */}
+      {/* Ventilation pipe */}
       <mesh position={[w * 0.3, h + 0.3, d * 0.25]}>
-        <cylinderGeometry args={[0.03, 0.03, 0.4, 6]} />
+        <cylinderGeometry args={[0.03, 0.03, 0.45, 6]} />
         <meshStandardMaterial color="#555" metalness={0.6} />
       </mesh>
-      {/* Horizontal accent band */}
-      <mesh position={[0, h * 0.5, d / 2 + 0.007]}>
-        <planeGeometry args={[w, 0.04]} />
+      {/* Entry — glass revolving door suggestion */}
+      <mesh position={[0, 0.25, d / 2 + 0.007]}>
+        <planeGeometry args={[w * 0.22, 0.5]} />
+        <meshStandardMaterial color="#446688" emissive="#446688" emissiveIntensity={0.15}
+          metalness={0.7} roughness={0.2} />
+      </mesh>
+      {/* Accent stripe at mid-height */}
+      <mesh position={[0, h * 0.5, d / 2 + 0.008]}>
+        <planeGeometry args={[w, 0.05]} />
         <meshStandardMaterial color="#4488aa" metalness={0.5} roughness={0.3} />
       </mesh>
     </group>
   );
 }
 
-// Academic building: brick-like with peaked/gabled roof
+// Academic building: warm brick, peaked roof, columned entrance
 function AcademicBuilding({ w, d, h, wallColor, isProxy }) {
   const floors = Math.max(1, Math.round(h / 0.6));
-  const roofPeak = 0.4;
+  const roofPeak = 0.35;
   return (
     <group>
-      {/* Main body - brick colored */}
+      {/* Stone foundation base */}
+      <mesh position={[0, 0.06, 0]} castShadow>
+        <boxGeometry args={[w + 0.06, 0.12, d + 0.06]} />
+        <meshStandardMaterial color="#6a6058" roughness={0.9} metalness={0.05} />
+      </mesh>
+      {/* Main body — brick */}
       <mesh position={[0, h / 2, 0]} castShadow>
         <boxGeometry args={[w, h, d]} />
-        <meshStandardMaterial color={wallColor} metalness={0.1} roughness={0.85}
-          transparent opacity={isProxy ? 0.5 : 0.92} />
+        <meshStandardMaterial color={wallColor} metalness={0.08} roughness={0.88}
+          transparent opacity={isProxy ? 0.5 : 0.93} />
       </mesh>
-      {/* Windows */}
-      <BuildingWindows w={w} d={d} h={h} floors={floors} windowColor="#ccaa55" />
-      {/* Gabled roof */}
-      <mesh position={[0, h + roofPeak / 2, 0]} rotation={[0, 0, 0]}>
-        <cylinderGeometry args={[0, 0, 0, 3]} />
+      {/* Brick quoin corners */}
+      {[[-1,-1],[-1,1],[1,-1],[1,1]].map(([sx,sz], i) => (
+        <mesh key={i} position={[sx * w / 2, h / 2, sz * d / 2]}>
+          <boxGeometry args={[0.07, h, 0.07]} />
+          <meshStandardMaterial color="#987050" roughness={0.85} />
+        </mesh>
+      ))}
+      {/* Windows — warm glow */}
+      <BuildingWindows w={w} d={d} h={h} floors={floors} windowColor="#ddaa44" />
+      {/* Cornice / trim band at top */}
+      <mesh position={[0, h - 0.02, 0]}>
+        <boxGeometry args={[w + 0.1, 0.06, d + 0.1]} />
+        <meshStandardMaterial color="#887060" roughness={0.75} />
       </mesh>
-      {/* Simplified peaked roof as a prism using two slanted planes */}
+      {/* Peaked roof */}
       <mesh position={[0, h + roofPeak / 2, 0]} castShadow>
         <boxGeometry args={[w + 0.15, roofPeak, d + 0.15]} />
-        <meshStandardMaterial color="#6b3a2a" metalness={0.15} roughness={0.8} />
+        <meshStandardMaterial color="#5a2e1e" metalness={0.1} roughness={0.85} />
       </mesh>
       {/* Roof ridge */}
       <mesh position={[0, h + roofPeak + 0.02, 0]}>
-        <boxGeometry args={[w * 0.08, 0.04, d + 0.2]} />
+        <boxGeometry args={[w * 0.06, 0.04, d + 0.2]} />
         <meshStandardMaterial color="#4a2a1a" />
       </mesh>
-      {/* Entry awning / portico on front */}
-      <mesh position={[0, h * 0.45, d / 2 + 0.12]}>
-        <boxGeometry args={[w * 0.35, 0.06, 0.25]} />
-        <meshStandardMaterial color="#555" metalness={0.3} roughness={0.6} />
+      {/* Portico / covered entrance */}
+      <mesh position={[0, h * 0.48, d / 2 + 0.15]}>
+        <boxGeometry args={[w * 0.4, 0.06, 0.3]} />
+        <meshStandardMaterial color="#776858" metalness={0.15} roughness={0.7} />
       </mesh>
-      {/* Columns under portico */}
-      {[-1, 1].map(s => (
-        <mesh key={s} position={[s * w * 0.14, h * 0.22, d / 2 + 0.18]}>
-          <cylinderGeometry args={[0.03, 0.03, h * 0.44, 6]} />
-          <meshStandardMaterial color="#ddd" metalness={0.2} roughness={0.5} />
+      {/* Columns — 4 for wider buildings, 2 for smaller */}
+      {(w > 1.2 ? [-1.5, -0.5, 0.5, 1.5] : [-1, 1]).map((s, i) => (
+        <mesh key={i} position={[s * w * 0.12, h * 0.24, d / 2 + 0.22]}>
+          <cylinderGeometry args={[0.035, 0.04, h * 0.47, 8]} />
+          <meshStandardMaterial color="#ddd8cc" metalness={0.15} roughness={0.5} />
         </mesh>
       ))}
-      {/* Door */}
-      <mesh position={[0, 0.2, d / 2 + 0.006]}>
-        <planeGeometry args={[w * 0.15, 0.4]} />
-        <meshStandardMaterial color="#3a2211" />
+      {/* Double door */}
+      <mesh position={[0, 0.22, d / 2 + 0.007]}>
+        <planeGeometry args={[w * 0.18, 0.44]} />
+        <meshStandardMaterial color="#3a2211" roughness={0.8} />
       </mesh>
+      {/* Transom window above door */}
+      <mesh position={[0, 0.48, d / 2 + 0.007]}>
+        <planeGeometry args={[w * 0.2, 0.08]} />
+        <meshStandardMaterial color="#bbaa66" emissive="#bbaa66" emissiveIntensity={0.2} />
+      </mesh>
+      {/* Steps */}
+      {[0, 1, 2].map(i => (
+        <mesh key={i} position={[0, i * 0.04 + 0.02, d / 2 + 0.25 + i * 0.06]}>
+          <boxGeometry args={[w * 0.35, 0.04, 0.06]} />
+          <meshStandardMaterial color="#8a8078" roughness={0.85} />
+        </mesh>
+      ))}
     </group>
   );
 }
 
-// Residence hall: taller, with balcony lines
+// Residence hall: tall tower, balconies, warm window glow
 function ResidenceBuilding({ w, d, h, wallColor, isProxy }) {
-  const floors = Math.max(3, Math.round(h / 0.5));
+  const floors = Math.max(3, Math.round(h / 0.45));
   return (
     <group>
+      {/* Foundation */}
+      <mesh position={[0, 0.05, 0]} castShadow>
+        <boxGeometry args={[w + 0.06, 0.1, d + 0.06]} />
+        <meshStandardMaterial color="#555" metalness={0.2} roughness={0.7} />
+      </mesh>
       {/* Main body */}
       <mesh position={[0, h / 2, 0]} castShadow>
         <boxGeometry args={[w, h, d]} />
-        <meshStandardMaterial color={wallColor} metalness={0.15} roughness={0.75}
-          transparent opacity={isProxy ? 0.5 : 0.92} />
+        <meshStandardMaterial color={wallColor} metalness={0.15} roughness={0.72}
+          transparent opacity={isProxy ? 0.5 : 0.93} />
       </mesh>
-      {/* Windows */}
-      <BuildingWindows w={w} d={d} h={h} floors={floors} windowColor="#eebb44" />
-      {/* Flat roof */}
+      {/* Accent panel stripe on front — different material section */}
+      <mesh position={[w * 0.25, h / 2, d / 2 + 0.007]}>
+        <planeGeometry args={[w * 0.15, h * 0.9]} />
+        <meshStandardMaterial color="#5a6878" metalness={0.3} roughness={0.6} />
+      </mesh>
+      {/* Windows — warm amber */}
+      <BuildingWindows w={w} d={d} h={h} floors={floors} windowColor="#ffcc55" />
+      {/* Roof parapet with railing */}
       <mesh position={[0, h + 0.03, 0]}>
-        <boxGeometry args={[w + 0.04, 0.05, d + 0.04]} />
-        <meshStandardMaterial color="#444" metalness={0.3} roughness={0.6} />
+        <boxGeometry args={[w + 0.04, 0.06, d + 0.04]} />
+        <meshStandardMaterial color="#555" metalness={0.4} roughness={0.5} />
       </mesh>
-      {/* Balcony ledges on front */}
+      {/* Balcony ledges — front and back */}
       {Array.from({ length: floors }, (_, i) => (
-        <mesh key={i} position={[0, (i + 0.95) * (h / floors), d / 2 + 0.06]}>
-          <boxGeometry args={[w + 0.02, 0.04, 0.12]} />
-          <meshStandardMaterial color="#888" metalness={0.3} roughness={0.5} />
+        <group key={i}>
+          <mesh position={[0, (i + 0.95) * (h / floors), d / 2 + 0.07]}>
+            <boxGeometry args={[w + 0.02, 0.035, 0.14]} />
+            <meshStandardMaterial color="#8a8a8a" metalness={0.35} roughness={0.45} />
+          </mesh>
+          {/* Railing posts */}
+          {Array.from({ length: Math.max(3, Math.round(w / 0.3)) }, (_, j) => (
+            <mesh key={j} position={[-w / 2 + (j + 0.5) * (w / Math.round(w / 0.3)), (i + 0.95) * (h / floors) + 0.06, d / 2 + 0.12]}>
+              <boxGeometry args={[0.01, 0.08, 0.01]} />
+              <meshStandardMaterial color="#999" metalness={0.5} />
+            </mesh>
+          ))}
+        </group>
+      ))}
+      {/* Ground floor — lobby glass */}
+      <mesh position={[0, 0.25, d / 2 + 0.007]}>
+        <planeGeometry args={[w * 0.6, 0.5]} />
+        <meshStandardMaterial color="#557799" emissive="#557799" emissiveIntensity={0.2}
+          metalness={0.6} roughness={0.25} />
+      </mesh>
+      {/* Canopy */}
+      <mesh position={[0, 0.55, d / 2 + 0.25]}>
+        <boxGeometry args={[w * 0.5, 0.04, 0.45]} />
+        <meshStandardMaterial color="#666" metalness={0.45} roughness={0.45} />
+      </mesh>
+      {/* Canopy support columns */}
+      {[-1, 1].map(s => (
+        <mesh key={s} position={[s * w * 0.2, 0.28, d / 2 + 0.4]}>
+          <cylinderGeometry args={[0.02, 0.02, 0.55, 5]} />
+          <meshStandardMaterial color="#777" metalness={0.5} />
         </mesh>
       ))}
-      {/* Entry canopy */}
-      <mesh position={[0, 0.5, d / 2 + 0.2]}>
-        <boxGeometry args={[w * 0.4, 0.05, 0.35]} />
-        <meshStandardMaterial color="#666" metalness={0.4} roughness={0.5} />
-      </mesh>
-      {/* Ground floor accent */}
-      <mesh position={[0, 0.15, d / 2 + 0.006]}>
-        <planeGeometry args={[w, 0.3]} />
-        <meshStandardMaterial color="#555" metalness={0.3} roughness={0.6} />
-      </mesh>
     </group>
   );
 }
 
-// Athletic facility: wide and low, barrel/curved roof shape
+// Athletic facility: massive, wide, arched roof, floodlights, bright colors
 function AthleticBuilding({ w, d, h, wallColor, isProxy }) {
+  // Athletic buildings are wider and deeper than other types
+  const aw = w * 1.4, ad = d * 1.4;
+  const ribCount = Math.max(4, Math.round(aw / 0.5));
   return (
     <group>
-      {/* Main body — wider and lower */}
-      <mesh position={[0, h / 2, 0]} castShadow>
-        <boxGeometry args={[w, h, d]} />
-        <meshStandardMaterial color={wallColor} metalness={0.3} roughness={0.6}
-          transparent opacity={isProxy ? 0.5 : 0.9} />
+      {/* Concrete pad / foundation */}
+      <mesh position={[0, 0.04, 0]}>
+        <boxGeometry args={[aw + 0.3, 0.08, ad + 0.3]} />
+        <meshStandardMaterial color="#3a3a3a" roughness={0.85} metalness={0.1} />
       </mesh>
-      {/* Curved roof approximation (half-cylinder) */}
-      <mesh position={[0, h + 0.15, 0]} rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[d / 2.2, d / 2.2, w, 12, 1, false, 0, Math.PI]} />
-        <meshStandardMaterial color="#3a3a3a" metalness={0.5} roughness={0.4}
+      {/* Main body — wider, taller walls */}
+      <mesh position={[0, h / 2, 0]} castShadow>
+        <boxGeometry args={[aw, h, ad]} />
+        <meshStandardMaterial color="#556575" metalness={0.35} roughness={0.55}
+          transparent opacity={isProxy ? 0.5 : 0.92} />
+      </mesh>
+      {/* Upper wall accent band — team color stripe */}
+      <mesh position={[0, h * 0.85, ad / 2 + 0.007]}>
+        <planeGeometry args={[aw * 0.95, h * 0.1]} />
+        <meshStandardMaterial color="#2a6030" emissive="#2a6030" emissiveIntensity={0.15} />
+      </mesh>
+      <mesh position={[0, h * 0.85, -ad / 2 - 0.007]}>
+        <planeGeometry args={[aw * 0.95, h * 0.1]} />
+        <meshStandardMaterial color="#2a6030" emissive="#2a6030" emissiveIntensity={0.15} />
+      </mesh>
+      {/* Arched / barrel roof */}
+      <mesh position={[0, h, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[ad / 2, ad / 2, aw + 0.05, 16, 1, false, 0, Math.PI]} />
+        <meshStandardMaterial color="#4a4a4a" metalness={0.55} roughness={0.35}
           side={THREE.DoubleSide} />
       </mesh>
-      {/* Large entrance doors */}
-      <mesh position={[0, h * 0.3, d / 2 + 0.006]}>
-        <planeGeometry args={[w * 0.35, h * 0.6]} />
-        <meshStandardMaterial color="#2a4060" metalness={0.5} roughness={0.3} />
+      {/* Roof ridge cap */}
+      <mesh position={[0, h + ad / 2 - 0.02, 0]}>
+        <boxGeometry args={[aw + 0.1, 0.04, 0.08]} />
+        <meshStandardMaterial color="#666" metalness={0.6} />
       </mesh>
-      {/* Upper windows / clerestory */}
-      {Array.from({ length: Math.max(3, Math.round(w / 0.6)) }, (_, i) => {
-        const x = -w / 2 + (w / (Math.round(w / 0.6) + 1)) * (i + 1);
+      {/* Structural ribs on front face */}
+      {Array.from({ length: ribCount }, (_, i) => {
+        const x = -aw / 2 + (i + 0.5) * (aw / ribCount);
         return (
-          <mesh key={i} position={[x, h * 0.8, d / 2 + 0.006]}>
-            <planeGeometry args={[0.25, 0.15]} />
-            <meshStandardMaterial color="#6699bb" emissive="#6699bb" emissiveIntensity={0.2} />
+          <group key={`rib${i}`}>
+            <mesh position={[x, h / 2, ad / 2 + 0.015]}>
+              <boxGeometry args={[0.04, h, 0.03]} />
+              <meshStandardMaterial color="#667" metalness={0.4} />
+            </mesh>
+            <mesh position={[x, h / 2, -ad / 2 - 0.015]}>
+              <boxGeometry args={[0.04, h, 0.03]} />
+              <meshStandardMaterial color="#667" metalness={0.4} />
+            </mesh>
+          </group>
+        );
+      })}
+      {/* Large entrance — glass front */}
+      <mesh position={[0, h * 0.35, ad / 2 + 0.008]}>
+        <planeGeometry args={[aw * 0.4, h * 0.65]} />
+        <meshStandardMaterial color="#3366aa" emissive="#3366aa" emissiveIntensity={0.2}
+          metalness={0.6} roughness={0.2} />
+      </mesh>
+      {/* Entrance frame */}
+      {[[-1, 0], [1, 0], [0, 1]].map(([sx, sy], i) => (
+        <mesh key={i} position={[
+          sx * aw * 0.2,
+          sy === 1 ? h * 0.68 : h * 0.35,
+          ad / 2 + 0.01
+        ]}>
+          <boxGeometry args={[sx === 0 ? aw * 0.42 : 0.06, sy === 1 ? 0.06 : h * 0.66, 0.04]} />
+          <meshStandardMaterial color="#444" metalness={0.5} />
+        </mesh>
+      ))}
+      {/* Clerestory windows — bright */}
+      {Array.from({ length: Math.max(4, Math.round(aw / 0.5)) }, (_, i) => {
+        const x = -aw / 2 + (aw / (Math.round(aw / 0.5) + 1)) * (i + 1);
+        return (
+          <mesh key={`w${i}`} position={[x, h * 0.9, ad / 2 + 0.008]}>
+            <planeGeometry args={[0.2, 0.12]} />
+            <meshStandardMaterial color="#99ccee" emissive="#99ccee" emissiveIntensity={0.4} />
           </mesh>
         );
       })}
-      {/* Side structural ribs */}
-      {Array.from({ length: 4 }, (_, i) => (
-        <mesh key={i} position={[-w / 2 + w * (i + 1) / 5, h / 2, d / 2 + 0.02]}>
-          <boxGeometry args={[0.04, h, 0.04]} />
-          <meshStandardMaterial color="#555" />
+      {/* Floodlight towers — 4 corners */}
+      {[[-1,-1],[-1,1],[1,-1],[1,1]].map(([sx,sz], i) => (
+        <group key={`fl${i}`} position={[sx * (aw / 2 + 0.4), 0, sz * (ad / 2 + 0.4)]}>
+          {/* Tower pole */}
+          <mesh position={[0, h * 0.8, 0]}>
+            <cylinderGeometry args={[0.025, 0.035, h * 1.6, 5]} />
+            <meshStandardMaterial color="#555" metalness={0.6} roughness={0.3} />
+          </mesh>
+          {/* Light bank */}
+          <mesh position={[sx * -0.08, h * 1.55, sz * -0.08]} rotation={[sz * 0.3, 0, sx * -0.3]}>
+            <boxGeometry args={[0.12, 0.06, 0.08]} />
+            <meshStandardMaterial color="#eee" emissive="#ffffcc" emissiveIntensity={0.8} />
+          </mesh>
+        </group>
+      ))}
+      {/* Side doors */}
+      {[-1, 1].map(s => (
+        <mesh key={`sd${s}`} position={[aw / 2 + 0.007, 0.22, s * ad * 0.25]}
+          rotation={[0, Math.PI / 2, 0]}>
+          <planeGeometry args={[0.3, 0.44]} />
+          <meshStandardMaterial color="#334455" metalness={0.4} />
         </mesh>
       ))}
+      {/* Loading dock on back */}
+      <mesh position={[0, 0.15, -ad / 2 - 0.15]}>
+        <boxGeometry args={[aw * 0.3, 0.3, 0.3]} />
+        <meshStandardMaterial color="#3a3a3a" roughness={0.8} />
+      </mesh>
     </group>
   );
 }
@@ -549,7 +699,7 @@ function Building3D({ building, data, isSelected, isHovered, onHover, onClick, s
   const d = Math.sqrt(area) * 0.65;
   const h = building.type === "Research Lab" ? 1.6 + data.currentPower / 2000
     : building.type === "Residence" ? 2.0 + data.currentPower / 2200
-    : building.type === "Athletic" ? 0.9 + data.currentPower / 3500
+    : building.type === "Athletic" ? 1.2 + data.currentPower / 2000
     : 1.0 + data.currentPower / 2800;
 
   // Brighter, more distinct wall colors per type
@@ -557,7 +707,7 @@ function Building3D({ building, data, isSelected, isHovered, onHover, onClick, s
     "Research Lab": "#5a6a7a",  // modern steel grey
     Academic: "#a07050",        // warm brick
     Residence: "#7a8898",       // blue-slate
-    Athletic: "#5a6878",        // gunmetal
+    Athletic: "#607888",        // bright steel-blue
   };
   const wallColor = wallColors[building.type];
 
